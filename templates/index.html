@@ -39,6 +39,34 @@
     margin-bottom: 2rem;
   }
 
+  /* ---------- mode toggle ---------- */
+  .mode-toggle {
+    display: flex;
+    gap: .4rem;
+    background: #13151d;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: .3rem;
+    margin-bottom: 1.5rem;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: .55rem;
+    font-size: .88rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #8b8fa3;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  .mode-btn:hover { color: #e2e4e9; }
+  .mode-btn.active {
+    background: #e8453c;
+    color: #fff;
+  }
+
   /* ---------- file picker zone ---------- */
   .dropzone {
     border: 2px dashed #3a3f54;
@@ -314,15 +342,21 @@
   </div>
 
   <form id="captionForm">
-    <!-- Video file picker -->
+    <!-- Input mode toggle -->
+    <div class="mode-toggle" id="modeToggle">
+      <button type="button" class="mode-btn active" data-mode="file">Single File</button>
+      <button type="button" class="mode-btn" data-mode="folder">Folder (Batch)</button>
+    </div>
+
+    <!-- Video / folder picker -->
     <div class="dropzone" id="dropzone">
-      <div class="dropzone-icon">&#128249;</div>
-      <div class="dropzone-text">Click to select a video file</div>
-      <div class="dropzone-text" style="font-size:.78rem;margin-top:.3rem;">mp4, mov, avi, mkv, webm</div>
+      <div class="dropzone-icon" id="dropzoneIcon">&#128249;</div>
+      <div class="dropzone-text" id="dropzoneText">Click to select a video file</div>
+      <div class="dropzone-text" id="dropzoneHint" style="font-size:.78rem;margin-top:.3rem;">mp4, mov, avi, mkv, webm</div>
       <div class="dropzone-file" id="fileName"></div>
     </div>
     <div id="videoPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-bottom:1.25rem;word-break:break-all;">
-      <span style="color:#b0b3c5;font-weight:600;">Video:</span> <span id="videoPathText"></span>
+      <span style="color:#b0b3c5;font-weight:600;" id="videoPathLabel">Video:</span> <span id="videoPathText"></span>
     </div>
 
     <!-- Output dir -->
@@ -409,12 +443,35 @@ function onProgress(msg) {
 
   statusText.textContent = msg.message;
 
+  // Determinate progress across a batch of files.
+  if (msg.total > 1 && msg.current > 0 && msg.status !== "done") {
+    progressBar.className = "progress-bar-fill";
+    progressBar.style.width = Math.round(((msg.current - 1) / msg.total) * 100) + "%";
+  }
+
   if (msg.status === "done") {
     progressBar.className = "progress-bar-fill complete";
-    // Show results
-    document.getElementById("resultMeta").textContent =
-      "Language: " + msg.language + "  |  Segments: " + msg.segments + "  |  Saved to: " + msg.srt_path;
-    document.getElementById("transcriptBox").textContent = msg.transcript;
+
+    const results = msg.results || [];
+    const errors = msg.errors || [];
+    const resultMeta = document.getElementById("resultMeta");
+    const transcriptBox = document.getElementById("transcriptBox");
+
+    if (results.length === 1 && errors.length === 0) {
+      const r = results[0];
+      resultMeta.textContent =
+        "Language: " + r.language + "  |  Segments: " + r.segments + "  |  Saved to: " + r.srt_path;
+      transcriptBox.textContent = r.transcript;
+    } else {
+      resultMeta.textContent =
+        results.length + " of " + msg.total + " file(s) transcribed" +
+        (errors.length ? "  |  " + errors.length + " failed" : "");
+      let summary = results.map(r =>
+        "✓ " + r.file + "  (" + r.language + ", " + r.segments + " segments)\n   " + r.srt_path
+      );
+      const failed = errors.map(e => "✗ " + e.file + "  — " + e.error);
+      transcriptBox.textContent = summary.concat(failed).join("\n\n");
+    }
     resultsArea.classList.add("visible");
     generateBtn.disabled = false;
   } else if (msg.status === "error") {
@@ -440,7 +497,39 @@ function onProgress(msg) {
   const videoPathDisplay = document.getElementById("videoPathDisplay");
   const videoPathText = document.getElementById("videoPathText");
 
+  const dropzoneText = document.getElementById("dropzoneText");
+  const dropzoneHint = document.getElementById("dropzoneHint");
+  const videoPathLabel = document.getElementById("videoPathLabel");
+
   let selectedVideoPath = "";
+  let selectedFolderPath = "";
+  let inputMode = "file"; // "file" | "folder"
+
+  // --- input mode toggle ---
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      inputMode = btn.dataset.mode;
+      document.querySelectorAll(".mode-btn").forEach(b =>
+        b.classList.toggle("active", b === btn));
+
+      // Reset selection + dropzone state when switching modes.
+      selectedVideoPath = "";
+      selectedFolderPath = "";
+      dropzone.classList.remove("has-file");
+      fileNameEl.textContent = "";
+      videoPathDisplay.style.display = "none";
+
+      if (inputMode === "folder") {
+        dropzoneText.textContent = "Click to select a folder of videos";
+        dropzoneHint.textContent = "All mp4, mov, avi, mkv, webm files inside will be processed";
+        videoPathLabel.textContent = "Folder:";
+      } else {
+        dropzoneText.textContent = "Click to select a video file";
+        dropzoneHint.textContent = "mp4, mov, avi, mkv, webm";
+        videoPathLabel.textContent = "Video:";
+      }
+    });
+  });
 
   // --- native directory picker ---
   browseDirBtn.addEventListener("click", async () => {
@@ -487,29 +576,46 @@ function onProgress(msg) {
     }
   });
 
-  // --- native video file picker ---
+  // --- native video file / folder picker ---
   dropzone.addEventListener("click", async () => {
-    const path = await window.pywebview.api.pick_video();
-    if (path) {
-      selectedVideoPath = path;
-      const name = path.split("/").pop();
-      fileNameEl.textContent = name;
-      dropzone.classList.add("has-file");
-      videoPathText.textContent = path;
-      videoPathDisplay.style.display = "block";
+    if (inputMode === "folder") {
+      const res = await window.pywebview.api.pick_input_folder();
+      if (res && res.path) {
+        selectedFolderPath = res.path;
+        const name = res.path.split("/").pop();
+        fileNameEl.textContent = name + " — " + res.count + " video file(s)";
+        dropzone.classList.add("has-file");
+        videoPathText.textContent = res.path;
+        videoPathDisplay.style.display = "block";
+      }
+    } else {
+      const path = await window.pywebview.api.pick_video();
+      if (path) {
+        selectedVideoPath = path;
+        const name = path.split("/").pop();
+        fileNameEl.textContent = name;
+        dropzone.classList.add("has-file");
+        videoPathText.textContent = path;
+        videoPathDisplay.style.display = "block";
+      }
     }
   });
 
   // --- generate ---
   form.addEventListener("submit", async e => {
     e.preventDefault();
-    if (!selectedVideoPath) { alert("Please select a video file first."); return; }
+    if (inputMode === "folder") {
+      if (!selectedFolderPath) { alert("Please select a folder first."); return; }
+    } else {
+      if (!selectedVideoPath) { alert("Please select a video file first."); return; }
+    }
     if (!outputDir.value) { alert("Please select an output directory."); return; }
 
     generateBtn.disabled = true;
     resultsArea.classList.remove("visible");
     progressArea.classList.add("visible");
     progressBar.className = "progress-bar-fill indeterminate";
+    progressBar.style.width = "";
     progressBar.style.background = "";
     statusText.textContent = "Starting...";
 
@@ -518,7 +624,11 @@ function onProgress(msg) {
     const wordTs = document.getElementById("wordTimestamps").checked;
     const lang = document.getElementById("language").value.trim();
 
-    await window.pywebview.api.generate(selectedVideoPath, outDir, model, wordTs, lang);
+    if (inputMode === "folder") {
+      await window.pywebview.api.generate_folder(selectedFolderPath, outDir, model, wordTs, lang);
+    } else {
+      await window.pywebview.api.generate(selectedVideoPath, outDir, model, wordTs, lang);
+    }
   });
 })();
 </script>
