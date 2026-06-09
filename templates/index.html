@@ -335,6 +335,12 @@
     </div>
     <div class="form-group">
       <div class="checkbox-group">
+        <input type="checkbox" id="createSrt" checked>
+        <label for="createSrt">📝 Create SRT (closed captions)</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
         <input type="checkbox" id="moveVideo" checked>
         <label for="moveVideo">🎬 Move Video to File Named Folder</label>
       </div>
@@ -412,12 +418,20 @@ function onProgress(msg) {
     progressBar.style.background = "";  // let the green .complete style show
     progressBar.style.width = "100%";
     statusPercent.textContent = "100%";
-    let meta = "Language: " + msg.language + "  |  Segments: " + msg.segments +
-               "  |  SRT: " + msg.srt_path;
-    if (msg.mp3_path) meta += "  |  MP3: " + msg.mp3_path;
-    if (msg.moved_video) meta += "  |  Video moved to: " + msg.video_path;
-    document.getElementById("resultMeta").textContent = meta;
-    document.getElementById("transcriptBox").textContent = msg.transcript;
+    const parts = [];
+    if (msg.has_srt) {
+      parts.push("Language: " + msg.language);
+      parts.push("Segments: " + msg.segments);
+      parts.push("SRT: " + msg.srt_path);
+    }
+    if (msg.mp3_path) parts.push("MP3: " + msg.mp3_path);
+    if (msg.moved_video) parts.push("Video moved to: " + msg.video_path);
+    document.getElementById("resultMeta").textContent = parts.join("  |  ");
+    const transcriptBox = document.getElementById("transcriptBox");
+    transcriptBox.textContent = msg.has_srt ? msg.transcript : "";
+    transcriptBox.style.display = msg.has_srt ? "block" : "none";
+    document.querySelector("#resultsArea h2").textContent =
+      msg.has_srt ? "Transcription Result" : "Done";
     resultsArea.classList.add("visible");
     generateBtn.disabled = false;
   } else if (msg.status === "error") {
@@ -465,6 +479,19 @@ function onProgress(msg) {
     if (path) setOutputDir(path);
   });
 
+  // --- SRT toggle: grey out model/language when captions are off ---
+  const createSrt = document.getElementById("createSrt");
+  const modelSelect = document.getElementById("model");
+  const languageInput = document.getElementById("language");
+  function syncSrt() {
+    const on = createSrt.checked;
+    modelSelect.disabled = !on;
+    languageInput.disabled = !on;
+    modelSelect.parentElement.parentElement.style.opacity = on ? "1" : ".4";
+  }
+  createSrt.addEventListener("change", syncSrt);
+  syncSrt();
+
   // --- "move video" only applies when "new folder" is on ---
   const newFolder = document.getElementById("newFolder");
   const moveVideo = document.getElementById("moveVideo");
@@ -496,6 +523,9 @@ function onProgress(msg) {
     e.preventDefault();
     if (!selectedVideoPath) { alert("Please select a video file first."); return; }
     if (!outputDir.value) { alert("Please select an output directory."); return; }
+    if (!createSrt.checked && !document.getElementById("createMp3").checked) {
+      alert("Select at least one output: MP3 or SRT."); return;
+    }
 
     generateBtn.disabled = true;
     resultsArea.classList.remove("visible");
@@ -509,13 +539,14 @@ function onProgress(msg) {
     const outDir = outputDir.value;
     const model = document.getElementById("model").value;
     const lang = document.getElementById("language").value.trim();
-    const createMp3 = document.getElementById("createMp3").checked;
+    const wantSrt = createSrt.checked;
+    const wantMp3 = document.getElementById("createMp3").checked;
     const useNewFolder = newFolder.checked;
     const moveVid = moveVideo.checked;
 
     await window.pywebview.api.generate(
       selectedVideoPath, outDir, model, lang,
-      createMp3, useNewFolder, moveVid
+      wantSrt, wantMp3, useNewFolder, moveVid
     );
   });
 })();

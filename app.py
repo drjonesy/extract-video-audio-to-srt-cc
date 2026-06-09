@@ -115,18 +115,18 @@ class Api:
         return ""
 
     def generate(self, video_path, output_dir, model_name, language,
-                 create_mp3, new_folder, move_video):
-        """Run transcription in a background thread, pushing progress to the UI."""
+                 create_srt, create_mp3, new_folder, move_video):
+        """Run the selected steps in a background thread, pushing progress to the UI."""
         thread = threading.Thread(
             target=self._transcribe,
             args=(video_path, output_dir, model_name, language,
-                  create_mp3, new_folder, move_video),
+                  create_srt, create_mp3, new_folder, move_video),
             daemon=True,
         )
         thread.start()
 
     def _transcribe(self, video_path, output_dir, model_name, language,
-                    create_mp3, new_folder, move_video):
+                    create_srt, create_mp3, new_folder, move_video):
         window = self._window_ref[0]
         temp_audio = None
 
@@ -140,62 +140,76 @@ class Api:
                 out_dir = out_dir / stem
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            # Step 1: produce the audio source for Whisper.
+            # Step 1: MP3. Made when requested; also reused as the SRT audio
+            # source so we never extract twice.
             mp3_path = None
             if create_mp3:
                 mp3_path = out_dir / f"{stem}.mp3"
                 self._send_progress(window, "extracting",
                                     "Creating MP3 from video...", percent=4)
                 extract_mp3(video_path, mp3_path)
-                # Whisper decodes the MP3 directly via ffmpeg.
-                audio_source = str(mp3_path)
-            else:
-                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-                temp_audio = tmp.name
-                tmp.close()
-                self._send_progress(window, "extracting",
-                                    "Extracting audio from video...", percent=4)
-                extract_audio(video_path, temp_audio)
-                audio_source = temp_audio
 
-            # Step 2: load model
-            self._send_progress(window, "loading",
-                                f"Loading Whisper model '{model_name}'...", percent=10)
-            import sys
-            import whisper
-            import whisper.transcribe  # ensure submodule is in sys.modules
-            # NOTE: the `whisper.transcribe` attribute is the re-exported
-            # transcribe() function, not the module. Patch the real module so
-            # transcribe()'s globals see our progress shim.
-            sys.modules["whisper.transcribe"].tqdm = _TqdmModuleShim
+            # Step 2: SRT (optional). Skips the whole Whisper pipeline when off.
+            srt_path = None
+            transcript_text = ""
+            detected_lang = "unknown"
+            segment_count = 0
+            if create_srt:
+                # Pick an audio source for Whisper: reuse the MP3 if we made one,
+                # otherwise extract a throwaway WAV.
+                if mp3_path:
+                    audio_source = str(mp3_path)
+                else:
+                    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                    temp_audio = tmp.name
+                    tmp.close()
+                    self._send_progress(window, "extracting",
+                                        "Extracting audio from video...", percent=4)
+                    extract_audio(video_path, temp_audio)
+                    audio_source = temp_audio
 
-            model = whisper.load_model(model_name)
+                # load model
+                self._send_progress(window, "loading",
+                                    f"Loading Whisper model '{model_name}'...", percent=10)
+                import sys
+                import whisper
+                import whisper.transcribe  # ensure submodule is in sys.modules
+                # NOTE: the `whisper.transcribe` attribute is the re-exported
+                # transcribe() function, not the module. Patch the real module so
+                # transcribe()'s globals see our progress shim.
+                sys.modules["whisper.transcribe"].tqdm = _TqdmModuleShim
 
-            # Step 3: transcribe (real progress from the tqdm hook, 10% -> 99%)
-            def on_frac(frac):
-                pct = 10 + frac * 85
+                model = whisper.load_model(model_name)
+
+                # transcribe (real progress from the tqdm hook, 10% -> 95%)
+                def on_frac(frac):
+                    pct = 10 + frac * 85
+                    self._send_progress(window, "transcribing",
+                                        f"Transcribing audio... {int(pct)}%", percent=pct)
+
+                _progress_state["hook"] = on_frac
                 self._send_progress(window, "transcribing",
-                                    f"Transcribing audio... {int(pct)}%", percent=pct)
+                                    "Transcribing audio...", percent=10)
+                try:
+                    result = model.transcribe(
+                        audio_source,
+                        language=language if language else None,
+                    )
+                finally:
+                    _progress_state["hook"] = None
 
-            _progress_state["hook"] = on_frac
-            self._send_progress(window, "transcribing",
-                                "Transcribing audio...", percent=10)
-            try:
-                result = model.transcribe(
-                    audio_source,
-                    language=language if language else None,
-                )
-            finally:
-                _progress_state["hook"] = None
+                # write SRT
+                self._send_progress(window, "writing", "Writing SRT file...", percent=96)
+                srt_content = build_srt(result["segments"])
+                srt_path = out_dir / f"{stem}.srt"
+                srt_path.write_text(srt_content, encoding="utf-8")
 
-            # Step 4: write SRT
-            self._send_progress(window, "writing", "Writing SRT file...", percent=96)
-            srt_content = build_srt(result["segments"])
-            srt_path = out_dir / f"{stem}.srt"
-            srt_path.write_text(srt_content, encoding="utf-8")
+                transcript_text = result.get("text", "").strip()
+                detected_lang = result.get("language", "unknown")
+                segment_count = len(result["segments"])
 
             # Optionally move the source video into the new folder, after the
-            # SRT exists. Only applies when a new folder was created.
+            # outputs exist. Only applies when a new folder was created.
             final_video_path = video_path
             video_moved = False
             if move_video and new_folder:
@@ -207,19 +221,17 @@ class Api:
                     final_video_path = str(dest)
                     video_moved = True
 
-            transcript_text = result.get("text", "").strip()
-            detected_lang = result.get("language", "unknown")
-
             done_data = json.dumps({
                 "status": "done",
-                "message": "Transcription complete!",
-                "srt_path": str(srt_path),
+                "message": "Done!",
+                "srt_path": str(srt_path) if srt_path else "",
                 "mp3_path": str(mp3_path) if mp3_path else "",
                 "video_path": str(final_video_path),
                 "moved_video": video_moved,
                 "transcript": transcript_text,
                 "language": detected_lang,
-                "segments": len(result["segments"]),
+                "segments": segment_count,
+                "has_srt": bool(srt_path),
                 "percent": 100,
             })
             window.evaluate_js(f"onProgress({done_data})")
