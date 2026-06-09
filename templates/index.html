@@ -254,9 +254,39 @@
     .card { padding: 1.5rem; }
     .row { flex-direction: column; gap: 0; }
   }
+
+  /* Startup overlay — shown until the pywebview API bridge is ready. */
+  #loadingOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #0f1117;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+    transition: opacity .35s ease;
+  }
+  #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+  #loadingOverlay .spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid #2a2d3a;
+    border-top-color: #e8453c;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  #loadingOverlay .loading-text { color: #8b8fa3; font-size: .95rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading Caption Generator…</div>
+</div>
 
 <div class="card">
   <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.3rem;">
@@ -293,20 +323,20 @@
     <!-- Output options -->
     <div class="form-group">
       <div class="checkbox-group">
-        <input type="checkbox" id="createMp3" checked>
-        <label for="createMp3">Create an MP3 first (saved with the SRT)</label>
+        <input type="checkbox" id="newFolder" checked>
+        <label for="newFolder">📁 Create File Named Folder</label>
       </div>
     </div>
     <div class="form-group">
       <div class="checkbox-group">
-        <input type="checkbox" id="newFolder" checked>
-        <label for="newFolder">Save output in a new folder named after the file</label>
+        <input type="checkbox" id="createMp3" checked>
+        <label for="createMp3">🎵 Create Mp3</label>
       </div>
     </div>
-    <div class="form-group" style="margin-left:1.5rem;">
+    <div class="form-group">
       <div class="checkbox-group">
         <input type="checkbox" id="moveVideo" checked>
-        <label for="moveVideo">Also move the video into that folder</label>
+        <label for="moveVideo">🎬 Move Video to File Named Folder</label>
       </div>
     </div>
 
@@ -488,6 +518,20 @@ function onProgress(msg) {
       createMp3, useNewFolder, moveVid
     );
   });
+})();
+
+// Dismiss the startup overlay once pywebview has injected its API bridge.
+// Until this fires, window.pywebview.api is undefined and every button is dead.
+(function() {
+  function ready() {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay) overlay.classList.add("hidden");
+  }
+  if (window.pywebview && window.pywebview.api) {
+    ready();  // bridge already present (event missed)
+  } else {
+    window.addEventListener("pywebviewready", ready);
+  }
 })();
 </script>
 </body>
