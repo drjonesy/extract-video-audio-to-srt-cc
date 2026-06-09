@@ -6,7 +6,6 @@ Designed for YouTube Shorts (under 1 minute).
 Usage:
     python3 generate_captions.py <video_file>
     python3 generate_captions.py <video_file> --model large-v3
-    python3 generate_captions.py <video_file> --word
 """
 
 import argparse
@@ -58,21 +57,6 @@ def write_srt(segments, output_path):
             f.write(f"{i}\n{start} --> {end}\n{text}\n\n")
 
 
-def write_word_srt(segments, output_path):
-    """Write word-level timestamps to an SRT file (for animated captions)."""
-    counter = 1
-    with open(output_path, "w", encoding="utf-8") as f:
-        for seg in segments:
-            if "words" not in seg:
-                continue
-            for word_info in seg["words"]:
-                start = format_timestamp(word_info["start"])
-                end = format_timestamp(word_info["end"])
-                word = word_info["word"].strip()
-                f.write(f"{counter}\n{start} --> {end}\n{word}\n\n")
-                counter += 1
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Generate captions from video using Whisper"
@@ -81,10 +65,6 @@ def main():
     parser.add_argument(
         "--model", default="medium",
         help="Whisper model: tiny, base, small, medium, large-v3 (default: medium)"
-    )
-    parser.add_argument(
-        "--word", action="store_true",
-        help="Generate word-level timestamps (for animated captions)"
     )
     parser.add_argument(
         "--language", default=None,
@@ -113,13 +93,9 @@ def main():
         result = model.transcribe(
             tmp.name,
             language=args.language,
-            word_timestamps=args.word,
         )
 
-    if args.word:
-        write_word_srt(result["segments"], output_srt)
-    else:
-        write_srt(result["segments"], output_srt)
+    write_srt(result["segments"], output_srt)
 
     print(f"\nDone! Caption file saved to:\n  {output_srt}")
     print(f"\nDetected language: {result.get('language', 'unknown')}")

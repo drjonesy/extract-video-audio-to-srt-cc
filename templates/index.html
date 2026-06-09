@@ -39,28 +39,6 @@
     margin-bottom: 2rem;
   }
 
-  /* ---------- file picker zone ---------- */
-  .dropzone {
-    border: 2px dashed #3a3f54;
-    border-radius: 12px;
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .2s, background .2s;
-    margin-bottom: 1.5rem;
-  }
-  .dropzone:hover {
-    border-color: #e8453c;
-    background: rgba(232,69,60,.06);
-  }
-  .dropzone.has-file {
-    border-color: #22c55e;
-    background: rgba(34,197,94,.06);
-  }
-  .dropzone-icon { font-size: 2rem; margin-bottom: .5rem; }
-  .dropzone-text { color: #8b8fa3; font-size: .9rem; }
-  .dropzone-file { color: #22c55e; font-weight: 600; margin-top: .5rem; }
-
   /* ---------- form controls ---------- */
   .form-group { margin-bottom: 1.25rem; }
   label {
@@ -235,65 +213,41 @@
   }
   .btn-browse:hover { background: #3a3f54; }
 
-  /* ---------- caption preview ---------- */
-  .caption-preview {
-    background: #000;
-    border-radius: 10px;
-    padding: 1.5rem 1rem;
-    margin-top: .6rem;
-    margin-bottom: 1.25rem;
-    text-align: center;
-    min-height: 80px;
-    display: flex;
+  /* ---------- video select button ---------- */
+  .btn-select {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    overflow: hidden;
+    gap: .5rem;
+    width: 100%;
+    padding: .85rem;
+    font-size: .95rem;
+    font-weight: 600;
+    border: 1px solid #3a3f54;
+    border-radius: 10px;
+    background: #13151d;
+    color: #e2e4e9;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
   }
-  .caption-preview .preview-label {
-    position: absolute;
-    top: .5rem;
-    left: .75rem;
-    font-size: .65rem;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: #555;
-  }
+  .btn-select:hover { border-color: #e8453c; background: rgba(232,69,60,.06); }
+  .btn-select.has-file { border-color: #22c55e; color: #22c55e; }
+  .hint { font-size: .78rem; color: #6b6f82; margin-top: .4rem; }
 
-  /* Standard mode */
-  .caption-standard {
-    font-size: 1.1rem;
+  /* ---------- progress percent row ---------- */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .status-percent {
+    font-size: 1rem;
     font-weight: 700;
-    color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,.8);
-    line-height: 1.5;
+    color: #e2e4e9;
+    font-variant-numeric: tabular-nums;
   }
-
-  /* Word-level mode */
-  .caption-word-level {
-    display: none;
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,.8);
-    gap: .3rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    line-height: 1.6;
-  }
-  .caption-word-level.active { display: flex; }
-  .caption-standard.active { display: block; }
-  .caption-standard:not(.active) { display: none; }
-
-  .caption-word-level .word {
-    opacity: .3;
-    transition: opacity .15s, color .15s, transform .15s;
-  }
-  .caption-word-level .word.highlight {
-    opacity: 1;
-    color: #e8453c;
-    transform: scale(1.08);
-  }
+  .progress-bar-fill { transition: width .3s ease; }
 
   /* ---------- responsive ---------- */
   @media (max-width: 520px) {
@@ -315,24 +269,45 @@
 
   <form id="captionForm">
     <!-- Video file picker -->
-    <div class="dropzone" id="dropzone">
-      <div class="dropzone-icon">&#128249;</div>
-      <div class="dropzone-text">Click to select a video file</div>
-      <div class="dropzone-text" style="font-size:.78rem;margin-top:.3rem;">mp4, mov, avi, mkv, webm</div>
-      <div class="dropzone-file" id="fileName"></div>
-    </div>
-    <div id="videoPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-bottom:1.25rem;word-break:break-all;">
-      <span style="color:#b0b3c5;font-weight:600;">Video:</span> <span id="videoPathText"></span>
+    <div class="form-group">
+      <label>Video file</label>
+      <button type="button" class="btn-select" id="selectVideoBtn">
+        <span>&#128249;</span><span id="selectVideoLabel">Select video file</span>
+      </button>
+      <div class="hint">mp4, mov, avi, mkv, webm</div>
+      <div id="videoPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-top:.5rem;word-break:break-all;">
+        <span style="color:#b0b3c5;font-weight:600;">Selected:</span> <span id="videoPathText"></span>
+      </div>
     </div>
 
     <!-- Output dir -->
     <div class="form-group">
       <label>Output directory</label>
       <div class="custom-dir-row">
-        <input type="text" id="outputDir" placeholder="Click Browse to select a folder..." readonly>
+        <input type="text" id="outputDir" placeholder="Defaults to the video's folder" readonly>
         <button type="button" class="btn-browse" id="browseDirBtn">Browse</button>
       </div>
       <div id="outputPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-top:.4rem;word-break:break-all;"></div>
+    </div>
+
+    <!-- Output options -->
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="createMp3" checked>
+        <label for="createMp3">Create an MP3 first (saved with the SRT)</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="newFolder" checked>
+        <label for="newFolder">Save output in a new folder named after the file</label>
+      </div>
+    </div>
+    <div class="form-group" style="margin-left:1.5rem;">
+      <div class="checkbox-group">
+        <input type="checkbox" id="moveVideo" checked>
+        <label for="moveVideo">Also move the video into that folder</label>
+      </div>
     </div>
 
     <!-- Model + Language row -->
@@ -353,41 +328,18 @@
       </div>
     </div>
 
-    <!-- Word timestamps -->
-    <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="wordTimestamps">
-        <label for="wordTimestamps">Word-level timestamps (for animated captions)</label>
-      </div>
-
-      <!-- Caption style preview -->
-      <div class="caption-preview" id="captionPreview">
-        <div class="preview-label">Preview</div>
-        <div class="caption-standard active" id="previewStandard">Setting up our new 3D printer for the first time</div>
-        <div class="caption-word-level" id="previewWordLevel">
-          <span class="word">Setting</span>
-          <span class="word">up</span>
-          <span class="word">our</span>
-          <span class="word">new</span>
-          <span class="word">3D</span>
-          <span class="word">printer</span>
-          <span class="word">for</span>
-          <span class="word">the</span>
-          <span class="word">first</span>
-          <span class="word">time</span>
-        </div>
-      </div>
-    </div>
-
     <button type="submit" class="btn" id="generateBtn">Generate Captions</button>
   </form>
 
   <!-- Progress -->
   <div class="progress-area" id="progressArea">
     <div class="progress-bar-track">
-      <div class="progress-bar-fill indeterminate" id="progressBar"></div>
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
     </div>
-    <div class="status-text" id="statusText">Starting...</div>
+    <div class="status-row">
+      <span class="status-text" id="statusText">Starting...</span>
+      <span class="status-percent" id="statusPercent"></span>
+    </div>
   </div>
 
   <!-- Results -->
@@ -401,19 +353,40 @@
 <script>
 // Called from Python to push progress updates
 function onProgress(msg) {
-  const progressArea = document.getElementById("progressArea");
   const progressBar = document.getElementById("progressBar");
   const statusText = document.getElementById("statusText");
+  const statusPercent = document.getElementById("statusPercent");
   const resultsArea = document.getElementById("resultsArea");
   const generateBtn = document.getElementById("generateBtn");
 
   statusText.textContent = msg.message;
 
+  // Bar color per stage.
+  const stageColors = {
+    extracting:   "linear-gradient(90deg, #ec4899, #a855f7)", // pink -> purple (MP3/audio)
+    loading:      "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
+    transcribing: "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
+    writing:      "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
+    moving:       "linear-gradient(90deg, #2563eb, #14b8a6)", // blue -> teal (move video)
+  };
+  if (stageColors[msg.status]) progressBar.style.background = stageColors[msg.status];
+
+  // Grow the fill bar to the reported percentage.
+  if (typeof msg.percent === "number") {
+    progressBar.style.width = msg.percent + "%";
+    statusPercent.textContent = Math.round(msg.percent) + "%";
+  }
+
   if (msg.status === "done") {
     progressBar.className = "progress-bar-fill complete";
-    // Show results
-    document.getElementById("resultMeta").textContent =
-      "Language: " + msg.language + "  |  Segments: " + msg.segments + "  |  Saved to: " + msg.srt_path;
+    progressBar.style.background = "";  // let the green .complete style show
+    progressBar.style.width = "100%";
+    statusPercent.textContent = "100%";
+    let meta = "Language: " + msg.language + "  |  Segments: " + msg.segments +
+               "  |  SRT: " + msg.srt_path;
+    if (msg.mp3_path) meta += "  |  MP3: " + msg.mp3_path;
+    if (msg.moved_video) meta += "  |  Video moved to: " + msg.video_path;
+    document.getElementById("resultMeta").textContent = meta;
     document.getElementById("transcriptBox").textContent = msg.transcript;
     resultsArea.classList.add("visible");
     generateBtn.disabled = false;
@@ -421,18 +394,20 @@ function onProgress(msg) {
     progressBar.className = "progress-bar-fill";
     progressBar.style.width = "100%";
     progressBar.style.background = "#ef4444";
+    statusPercent.textContent = "";
     generateBtn.disabled = false;
   }
 }
 
 (function() {
-  const dropzone = document.getElementById("dropzone");
-  const fileNameEl = document.getElementById("fileName");
+  const selectVideoBtn = document.getElementById("selectVideoBtn");
+  const selectVideoLabel = document.getElementById("selectVideoLabel");
   const form = document.getElementById("captionForm");
   const generateBtn = document.getElementById("generateBtn");
   const progressArea = document.getElementById("progressArea");
   const progressBar = document.getElementById("progressBar");
   const statusText = document.getElementById("statusText");
+  const statusPercent = document.getElementById("statusPercent");
   const resultsArea = document.getElementById("resultsArea");
   const outputDir = document.getElementById("outputDir");
   const browseDirBtn = document.getElementById("browseDirBtn");
@@ -442,61 +417,47 @@ function onProgress(msg) {
 
   let selectedVideoPath = "";
 
+  function setOutputDir(path) {
+    outputDir.value = path;
+    outputPathDisplay.textContent = path;
+    outputPathDisplay.style.display = "block";
+  }
+
+  // Parent directory of a path (handles / and \).
+  function parentDir(p) {
+    const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+    return i >= 0 ? p.slice(0, i) : "";
+  }
+
   // --- native directory picker ---
   browseDirBtn.addEventListener("click", async () => {
     const path = await window.pywebview.api.pick_directory();
-    if (path) {
-      outputDir.value = path;
-      outputPathDisplay.textContent = path;
-      outputPathDisplay.style.display = "block";
-    }
+    if (path) setOutputDir(path);
   });
 
-  // --- caption preview toggle ---
-  const wordTimestamps = document.getElementById("wordTimestamps");
-  const previewStandard = document.getElementById("previewStandard");
-  const previewWordLevel = document.getElementById("previewWordLevel");
-  const words = previewWordLevel.querySelectorAll(".word");
-  let wordAnimInterval = null;
-
-  function startWordAnimation() {
-    let idx = 0;
-    words.forEach(w => w.classList.remove("highlight"));
-    words[0].classList.add("highlight");
-    wordAnimInterval = setInterval(() => {
-      words[idx].classList.remove("highlight");
-      idx = (idx + 1) % words.length;
-      words[idx].classList.add("highlight");
-    }, 400);
+  // --- "move video" only applies when "new folder" is on ---
+  const newFolder = document.getElementById("newFolder");
+  const moveVideo = document.getElementById("moveVideo");
+  function syncMoveVideo() {
+    moveVideo.disabled = !newFolder.checked;
+    if (!newFolder.checked) moveVideo.checked = false;
+    moveVideo.parentElement.style.opacity = newFolder.checked ? "1" : ".4";
   }
-
-  function stopWordAnimation() {
-    if (wordAnimInterval) { clearInterval(wordAnimInterval); wordAnimInterval = null; }
-    words.forEach(w => w.classList.remove("highlight"));
-  }
-
-  wordTimestamps.addEventListener("change", () => {
-    if (wordTimestamps.checked) {
-      previewStandard.classList.remove("active");
-      previewWordLevel.classList.add("active");
-      startWordAnimation();
-    } else {
-      previewWordLevel.classList.remove("active");
-      previewStandard.classList.add("active");
-      stopWordAnimation();
-    }
-  });
+  newFolder.addEventListener("change", syncMoveVideo);
+  syncMoveVideo();
 
   // --- native video file picker ---
-  dropzone.addEventListener("click", async () => {
+  selectVideoBtn.addEventListener("click", async () => {
     const path = await window.pywebview.api.pick_video();
     if (path) {
       selectedVideoPath = path;
-      const name = path.split("/").pop();
-      fileNameEl.textContent = name;
-      dropzone.classList.add("has-file");
+      const name = path.split(/[/\\]/).pop();
+      selectVideoLabel.textContent = name;
+      selectVideoBtn.classList.add("has-file");
       videoPathText.textContent = path;
       videoPathDisplay.style.display = "block";
+      // Default the output directory to the video's folder.
+      if (!outputDir.value) setOutputDir(parentDir(path));
     }
   });
 
@@ -509,16 +470,23 @@ function onProgress(msg) {
     generateBtn.disabled = true;
     resultsArea.classList.remove("visible");
     progressArea.classList.add("visible");
-    progressBar.className = "progress-bar-fill indeterminate";
+    progressBar.className = "progress-bar-fill";
     progressBar.style.background = "";
+    progressBar.style.width = "0%";
+    statusPercent.textContent = "0%";
     statusText.textContent = "Starting...";
 
     const outDir = outputDir.value;
     const model = document.getElementById("model").value;
-    const wordTs = document.getElementById("wordTimestamps").checked;
     const lang = document.getElementById("language").value.trim();
+    const createMp3 = document.getElementById("createMp3").checked;
+    const useNewFolder = newFolder.checked;
+    const moveVid = moveVideo.checked;
 
-    await window.pywebview.api.generate(selectedVideoPath, outDir, model, wordTs, lang);
+    await window.pywebview.api.generate(
+      selectedVideoPath, outDir, model, lang,
+      createMp3, useNewFolder, moveVid
+    );
   });
 })();
 </script>

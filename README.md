@@ -1,139 +1,160 @@
-<h1><img src="icon.png" style="width: 30px"> Extract a Video's Spoken Audio Track to SRT/CC</h1>
+<h1><img src="icon.png" style="width: 30px"> Caption Generator</h1>
 
-A simple python program that is designed to run locally on your machine. Extracts spoken audio to SRT. Think Closed Captions.
+Turn a video into captions (subtitles) on your own computer. You pick a video,
+press a button, and it makes a **.srt** caption file you can upload to YouTube.
+It can also save an **.mp3** of the sound. Great for YouTube Shorts.
 
-Generate closed captions (SRT files) from video files using OpenAI Whisper. Designed for YouTube Shorts under 1 minute.
+It runs locally using [OpenAI Whisper](https://github.com/openai/whisper) — your
+videos never leave your computer.
 
-## Prerequisites
+---
 
-- Python 3.9+
-- ffmpeg
+## What it can do
 
-Install ffmpeg:
+- 🎬 Pick a video with one button (mp4, mov, avi, mkv, webm)
+- 📝 Make a **.srt** caption file
+- 🎵 Also save an **.mp3** of the audio (on by default)
+- 📁 Put the results in a new folder named after your video (on by default)
+- 📦 Optionally move the video into that folder too, so everything stays together
+- 📂 Saves next to your video automatically (you can change where)
+- ⏳ A progress bar that fills up and shows a percent
+- 🌍 Auto-detects the language (or you can pick one)
 
-| OS      | Command                   |
-| ------- | ------------------------- |
-| macOS   | `brew install ffmpeg`     |
-| Linux   | `sudo apt install ffmpeg` |
-| Windows | `winget install ffmpeg`   |
+---
 
-## Setup
+## Setup — do this **once**
 
-1. Create and activate a virtual environment:
+You only have to do these steps the first time. Take your time. 🙂
 
-**macOS / Linux:**
+### Step 1 — Install Python
+
+Python is the program that runs this app.
+
+1. Go to **https://www.python.org/downloads/**
+2. Click the big yellow **Download Python** button.
+3. Open the file you downloaded and click **Install**.
+   - On Windows, **check the box that says "Add Python to PATH"** before installing.
+
+### Step 2 — Install ffmpeg
+
+ffmpeg is a helper that reads the sound out of videos.
+
+| Your computer | Type this in the Terminal |
+| ------------- | ------------------------- |
+| **Mac**       | `brew install ffmpeg`     |
+| **Windows**   | `winget install ffmpeg`   |
+| **Linux**     | `sudo apt install ffmpeg` |
+
+> On a Mac, if `brew` doesn't work, install Homebrew first from **https://brew.sh**.
+
+### Step 3 — Get the app ready
+
+1. Download this project (green **Code** button → **Download ZIP**) and unzip it.
+2. Open the **Terminal** app.
+3. Go into the project folder. Type `cd ` (with a space), then drag the folder
+   into the Terminal window and press **Enter**.
+4. Copy and paste these lines, one at a time, pressing **Enter** after each:
+
+**Mac / Linux:**
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-**Windows (Command Prompt):**
-
-```cmd
-python -m venv venv
-venv\Scripts\activate.bat
-```
-
-**Windows (PowerShell):**
-
-```powershell
-python -m venv venv
-venv\Scripts\Activate.ps1
-```
-
-2. Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-> Note: The first run will download the Whisper model (~1.5GB for `medium`). This only happens once.
-
-## Usage
-
-Activate the virtual environment first:
-
-**macOS / Linux:**
-
-```bash
-source venv/bin/activate
-```
-
-**Windows (Command Prompt):**
+**Windows:**
 
 ```cmd
+python -m venv venv
 venv\Scripts\activate.bat
+pip install -r requirements.txt
 ```
 
-**Windows (PowerShell):**
+This makes a private workspace (`venv`) and installs everything the app needs.
 
-```powershell
-venv\Scripts\Activate.ps1
-```
+> The very first time you make captions, it also downloads the Whisper "brain"
+> (about 1.5 GB for the default model). This happens once, then it's saved.
 
-### Basic — generate captions
-
-```bash
-python3 generate_captions.py "path/to/video.mp4"
-```
-
-This creates a `.srt` file next to your video (e.g. `video.srt`).
-
-### Word-level timestamps (for animated captions)
-
-```bash
-python3 generate_captions.py "path/to/video.mp4" --word
-```
-
-### Choose a model
-
-```bash
-python3 generate_captions.py "path/to/video.mp4" --model large-v3
-```
-
-| Model      | Size  | Speed    | Notes          |
-| ---------- | ----- | -------- | -------------- |
-| `tiny`     | 39MB  | Fastest  | Quick drafts   |
-| `base`     | 74MB  | Fast     | Decent quality |
-| `small`    | 244MB | Moderate | Good quality   |
-| `medium`   | 1.5GB | Slower   | **Default**    |
-| `large-v3` | 3GB   | Slowest  | Best accuracy  |
-
-### Specify language
-
-```bash
-python3 generate_captions.py "path/to/video.mp4" --language en
-```
-
-By default, Whisper auto-detects the language.
-
-## Output
-
-The script outputs an `.srt` file in the same directory as the input video. Upload this file directly to YouTube as closed captions.
+✅ **You're done setting up!**
 
 ---
 
-## Web App
+## How to start the app
 
-A Flask web interface is also available with drag-and-drop upload, model selection, real-time progress updates, and SRT download.
+### Mac — the easy way
 
-### Running the web app
+**Double-click `run.command`.** That's it. A window opens with the app.
+
+> First time only: if Mac says it can't open it, **right-click** `run.command`
+> → **Open** → **Open**. You only do this once.
+
+### Any computer — the manual way
+
+In the Terminal, inside the project folder:
+
+**Mac / Linux:**
 
 ```bash
 source venv/bin/activate
-pip install -r requirements.txt
-python3 app.py
+python app.py
 ```
 
-Then open [http://localhost:3100](http://localhost:3100) in your browser.
+**Windows:**
 
-### Features
+```cmd
+venv\Scripts\activate.bat
+python app.py
+```
 
-- Drag & drop or browse for video files (mp4, mov, avi, mkv, webm)
-- Choose Whisper model (tiny through large-v3)
-- Optional word-level timestamps for animated captions
-- Optional language selection (auto-detect by default)
-- Custom output directory for the generated SRT file
-- Real-time progress via Server-Sent Events
-- View transcript and download the SRT file from the browser
+---
+
+## How to make captions
+
+1. Click **Select video file** and choose your video.
+2. The output folder fills in by itself (where your video is). Change it with
+   **Browse** if you want.
+3. Leave the two switches on (they're on by default):
+   - **Create an MP3 first** — also saves the sound as an .mp3
+   - **Save output in a new folder** — keeps things tidy in their own folder
+4. Pick a **model** (bigger = better but slower) and a **language** (or leave blank).
+5. Click **Generate Captions** and watch the bar fill up.
+6. When it's done, you'll see the words and where your files were saved.
+
+### Which model should I pick?
+
+| Model      | Size  | Speed    | Notes          |
+| ---------- | ----- | -------- | -------------- |
+| `tiny`     | 39 MB | Fastest  | Quick drafts   |
+| `base`     | 74 MB | Fast     | Okay quality   |
+| `small`    | 244 MB| Medium   | Good quality   |
+| `medium`   | 1.5 GB| Slower   | **Default**    |
+| `large-v3` | 3 GB  | Slowest  | Best quality   |
+
+---
+
+## Command-line version (optional, for grown-ups)
+
+You can also make captions without the window:
+
+```bash
+source venv/bin/activate
+python3 generate_captions.py "path/to/video.mp4"
+```
+
+Handy options:
+
+```bash
+python3 generate_captions.py "video.mp4" --model large-v3 # best quality
+python3 generate_captions.py "video.mp4" --language en    # force a language
+```
+
+---
+
+## Help! Something went wrong
+
+- **"No module named webview" (or whisper)** — you forgot to install the
+  requirements. Run `pip install -r requirements.txt` after activating `venv`.
+- **"ffmpeg not found"** — do Step 2 above.
+- **The Mac won't open `run.command`** — right-click it → **Open** → **Open**.
+- **It's slow** — that's normal for big models. Try the `tiny` or `base` model.
