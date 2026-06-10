@@ -40,6 +40,16 @@
     transition: background .2s;
   }
   .btn-add:hover { background: #d03a32; }
+  .btn-batch {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .65rem 1.1rem;
+    font-size: .9rem; font-weight: 600;
+    border: none; border-radius: 9px;
+    background: #2563eb; color: #fff; cursor: pointer;
+    transition: background .2s, opacity .2s;
+  }
+  .btn-batch:hover { background: #1d4ed8; }
+  .btn-batch:disabled { opacity: .4; cursor: not-allowed; }
   .count { color: #6b6f82; font-size: .82rem; }
 
   /* ---------- table ---------- */
@@ -91,6 +101,10 @@
     white-space: nowrap; transition: background .2s;
   }
   .btn-mini:hover { background: #3a3f54; }
+
+  .sel-col { width: 34px; }
+  .sel-cell { text-align: center; }
+  .sel { width: 17px; height: 17px; accent-color: #2563eb; cursor: pointer; }
 
   .opts { display: flex; flex-direction: column; gap: .3rem; }
   .opt {
@@ -190,6 +204,7 @@
 
 <div class="toolbar">
   <button class="btn-add" id="addBtn"><span>&#10133;</span> Add Files</button>
+  <button class="btn-batch" id="batchBtn" disabled><span>&#9654;</span> Batch Run</button>
   <span class="count" id="countLabel">0 files</span>
 </div>
 
@@ -197,7 +212,8 @@
   <table>
     <thead>
       <tr>
-        <th>File</th>
+        <th class="sel-col"></th>
+        <th>Files (<span id="fileCount">0</span>)</th>
         <th>Output Directory</th>
         <th>Options</th>
         <th>Model / Language</th>
@@ -239,9 +255,15 @@ const LANG_OPTS = `
   <option value="vi">Vietnamese</option>`;
 
 let jobSeq = 0;
+let batchRunning = false;
 const rowsEl = document.getElementById("rows");
 const emptyRow = document.getElementById("emptyRow");
 const countLabel = document.getElementById("countLabel");
+const batchBtn = document.getElementById("batchBtn");
+
+// job_id -> resolver, fulfilled when a row reaches a terminal state.
+const pendingResolvers = {};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const basename = p => p.split(/[/\\]/).pop();
 function parentDir(p) {
@@ -251,7 +273,7 @@ function parentDir(p) {
 
 function updateCount() {
   const n = rowsEl.children.length;
-  countLabel.textContent = n + (n === 1 ? " file" : " files");
+  document.getElementById("fileCount").textContent = n;
   emptyRow.style.display = n ? "none" : "block";
 }
 
@@ -269,6 +291,7 @@ function addRow(videoPath) {
   tr.dataset.state = "idle";
 
   tr.innerHTML = `
+    <td class="sel-cell"><input type="checkbox" class="sel"></td>
     <td class="file-cell">
       <div class="fname">${basename(videoPath)}</div>
       <div class="fpath" title="${videoPath}">${videoPath}</div>
@@ -315,6 +338,9 @@ function wireRow(tr, id) {
   const srt = tr.querySelector(".opt-srt");
   const modelSel = tr.querySelector(".model-sel");
   const langSel = tr.querySelector(".lang-sel");
+  const sel = tr.querySelector(".sel");
+
+  sel.addEventListener("change", updateBatchBtn);
 
   // Output dir picker
   browse.addEventListener("click", async () => {
@@ -356,7 +382,15 @@ function wireRow(tr, id) {
     if (tr.dataset.state === "processing") window.pywebview.api.stop_job(id);
     tr.remove();
     updateCount();
+    updateBatchBtn();
   });
+}
+
+// Enable Batch Run only when 2+ rows are checked; show how many are selected.
+function updateBatchBtn() {
+  const n = rowsEl.querySelectorAll(".sel:checked").length;
+  batchBtn.disabled = batchRunning || n < 2;
+  countLabel.textContent = n + " selected";
 }
 
 function setState(tr, state) {
@@ -408,6 +442,36 @@ async function startRow(tr, id) {
                                        srt, mp3, folder, move);
 }
 
+// Start a row and resolve once it finishes (done / error / stopped).
+function runRowAndWait(tr) {
+  return new Promise(resolve => {
+    pendingResolvers[tr.id] = resolve;
+    startRow(tr, tr.id);
+  });
+}
+
+// Run all checked rows one at a time, 5s gap between each so Whisper state
+// fully clears before the next starts.
+async function batchRun() {
+  const queue = [...rowsEl.querySelectorAll(".sel:checked")]
+    .map(c => c.closest("tr"))
+    .filter(tr => tr.dataset.state !== "processing");
+  if (queue.length < 2) return;
+
+  batchRunning = true;
+  batchBtn.disabled = true;
+  batchBtn.querySelector("span").textContent = "⏳";
+
+  for (let i = 0; i < queue.length; i++) {
+    await runRowAndWait(queue[i]);
+    if (i < queue.length - 1) await sleep(5000);
+  }
+
+  batchRunning = false;
+  batchBtn.querySelector("span").textContent = "▶";
+  updateBatchBtn();
+}
+
 // Stage colors for the per-row bar.
 const STAGE_COLORS = {
   extracting:   "linear-gradient(90deg, #ec4899, #a855f7)",
@@ -452,10 +516,18 @@ function onProgress(msg) {
   } else {
     text.className = "mini-text"; text.textContent = msg.message;
   }
+
+  // Unblock the batch runner once this row reaches a terminal state.
+  if (msg.status === "done" || msg.status === "error" || msg.status === "stopped") {
+    const resolve = pendingResolvers[msg.job_id];
+    if (resolve) { delete pendingResolvers[msg.job_id]; resolve(msg.status); }
+  }
 }
 
 document.getElementById("addBtn").addEventListener("click", addFiles);
+batchBtn.addEventListener("click", batchRun);
 updateCount();
+updateBatchBtn();
 
 // Dismiss the startup overlay once pywebview's API bridge is ready.
 (function() {
