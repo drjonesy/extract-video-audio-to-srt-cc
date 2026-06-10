@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Desktop app for generating closed captions (SRT) from video files using OpenAI Whisper.
-Uses pywebview for a native window with the existing HTML/CSS/JS UI.
+MP3 & SRT Maker — batch desktop app that turns video files into MP3 audio and/or
+SRT closed captions (via OpenAI Whisper). Each table row is an independent job
+that can be started, stopped, and removed. Uses pywebview for a native window.
 """
 
 # Prevent macOS segfault with MKL/OpenMP threading conflicts
@@ -39,27 +40,16 @@ def build_srt(segments: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def extract_audio(video_path: str, audio_path: str) -> None:
-    subprocess.run(
-        ["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1",
-         "-c:a", "pcm_s16le", audio_path, "-y"],
-        capture_output=True, check=True,
-    )
-
-
-def extract_mp3(video_path: str, mp3_path: str) -> None:
-    """Extract the audio track to a shareable MP3 (kept on disk)."""
-    subprocess.run(
-        ["ffmpeg", "-i", str(video_path), "-vn", "-ar", "44100", "-ac", "2",
-         "-b:a", "192k", str(mp3_path), "-y"],
-        capture_output=True, check=True,
-    )
+class JobCancelled(Exception):
+    """Raised to abort a job when the user presses Stop."""
 
 
 # --- Whisper transcription progress hook ---------------------------------
 # Whisper drives a tqdm bar over audio frames inside transcribe(). We swap in
 # this shim so each pbar.update() reports a real completion fraction to the UI.
-_progress_state = {"hook": None}
+# The hook is stored per-thread so concurrent rows route progress (and cancel)
+# to their own job without racing on a shared global.
+_thread_local = threading.local()
 
 
 class _ProgressTqdm:
@@ -69,7 +59,7 @@ class _ProgressTqdm:
 
     def update(self, n=1):
         self.n += n
-        hook = _progress_state["hook"]
+        hook = getattr(_thread_local, "hook", None)
         if hook and self.total:
             hook(min(self.n / self.total, 1.0))
 
@@ -93,19 +83,20 @@ class Api:
 
     def __init__(self, window_ref):
         self._window_ref = window_ref
+        # job_id -> {"cancel": bool, "proc": Popen|None}
+        self._jobs = {}
 
     def get_cwd(self):
         return os.getcwd()
 
-    def pick_video(self):
-        """Open native file picker for video files."""
+    def pick_videos(self):
+        """Open native file picker; returns a list of selected video paths."""
         result = self._window_ref[0].create_file_dialog(
             webview.FileDialog.OPEN,
+            allow_multiple=True,
             file_types=("Video Files (*.mp4;*.mov;*.avi;*.mkv;*.webm)",),
         )
-        if result and len(result) > 0:
-            return result[0]
-        return ""
+        return list(result) if result else []
 
     def pick_directory(self):
         """Open native folder picker."""
@@ -114,23 +105,55 @@ class Api:
             return result[0]
         return ""
 
-    def generate(self, video_path, output_dir, model_name, language,
-                 create_srt, create_mp3, new_folder, move_video):
-        """Run the selected steps in a background thread, pushing progress to the UI."""
+    def start_job(self, job_id, video_path, output_dir, model_name, language,
+                  create_srt, create_mp3, new_folder, move_video):
+        """Run one table row's selected steps in a background thread."""
+        self._jobs[job_id] = {"cancel": False, "proc": None}
         thread = threading.Thread(
-            target=self._transcribe,
-            args=(video_path, output_dir, model_name, language,
+            target=self._run_job,
+            args=(job_id, video_path, output_dir, model_name, language,
                   create_srt, create_mp3, new_folder, move_video),
             daemon=True,
         )
         thread.start()
 
-    def _transcribe(self, video_path, output_dir, model_name, language,
-                    create_srt, create_mp3, new_folder, move_video):
+    def stop_job(self, job_id):
+        """Flag a job to cancel and kill any ffmpeg subprocess it is running."""
+        job = self._jobs.get(job_id)
+        if not job:
+            return
+        job["cancel"] = True
+        proc = job.get("proc")
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+    def _check_cancel(self, job_id):
+        if self._jobs.get(job_id, {}).get("cancel"):
+            raise JobCancelled()
+
+    def _run_ff(self, job_id, cmd):
+        """Run an ffmpeg command as a killable subprocess registered to the job."""
+        job = self._jobs.get(job_id, {})
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+        job["proc"] = proc
+        proc.wait()
+        job["proc"] = None
+        if job.get("cancel"):
+            raise JobCancelled()
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+    def _run_job(self, job_id, video_path, output_dir, model_name, language,
+                 create_srt, create_mp3, new_folder, move_video):
         window = self._window_ref[0]
         temp_audio = None
 
         try:
+            self._check_cancel(job_id)
             stem = Path(video_path).stem
 
             # Resolve output directory. Optionally nest in a folder named
@@ -145,9 +168,12 @@ class Api:
             mp3_path = None
             if create_mp3:
                 mp3_path = out_dir / f"{stem}.mp3"
-                self._send_progress(window, "extracting",
-                                    "Creating MP3 from video...", percent=4)
-                extract_mp3(video_path, mp3_path)
+                self._send_progress(job_id, "extracting",
+                                    "Creating MP3...", percent=4)
+                self._run_ff(job_id, [
+                    "ffmpeg", "-i", str(video_path), "-vn", "-ar", "44100",
+                    "-ac", "2", "-b:a", "192k", str(mp3_path), "-y",
+                ])
 
             # Step 2: SRT (optional). Skips the whole Whisper pipeline when off.
             srt_path = None
@@ -155,6 +181,7 @@ class Api:
             detected_lang = "unknown"
             segment_count = 0
             if create_srt:
+                self._check_cancel(job_id)
                 # Pick an audio source for Whisper: reuse the MP3 if we made one,
                 # otherwise extract a throwaway WAV.
                 if mp3_path:
@@ -163,14 +190,17 @@ class Api:
                     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
                     temp_audio = tmp.name
                     tmp.close()
-                    self._send_progress(window, "extracting",
-                                        "Extracting audio from video...", percent=4)
-                    extract_audio(video_path, temp_audio)
+                    self._send_progress(job_id, "extracting",
+                                        "Extracting audio...", percent=4)
+                    self._run_ff(job_id, [
+                        "ffmpeg", "-i", str(video_path), "-ar", "16000",
+                        "-ac", "1", "-c:a", "pcm_s16le", temp_audio, "-y",
+                    ])
                     audio_source = temp_audio
 
                 # load model
-                self._send_progress(window, "loading",
-                                    f"Loading Whisper model '{model_name}'...", percent=10)
+                self._send_progress(job_id, "loading",
+                                    f"Loading model '{model_name}'...", percent=10)
                 import sys
                 import whisper
                 import whisper.transcribe  # ensure submodule is in sys.modules
@@ -179,27 +209,31 @@ class Api:
                 # transcribe()'s globals see our progress shim.
                 sys.modules["whisper.transcribe"].tqdm = _TqdmModuleShim
 
+                self._check_cancel(job_id)
                 model = whisper.load_model(model_name)
 
-                # transcribe (real progress from the tqdm hook, 10% -> 95%)
+                # transcribe (real progress from the tqdm hook, 10% -> 95%).
+                # Raising inside the hook aborts transcribe() when Stop is hit.
                 def on_frac(frac):
+                    if self._jobs.get(job_id, {}).get("cancel"):
+                        raise JobCancelled()
                     pct = 10 + frac * 85
-                    self._send_progress(window, "transcribing",
-                                        f"Transcribing audio... {int(pct)}%", percent=pct)
+                    self._send_progress(job_id, "transcribing",
+                                        f"Transcribing... {int(pct)}%", percent=pct)
 
-                _progress_state["hook"] = on_frac
-                self._send_progress(window, "transcribing",
-                                    "Transcribing audio...", percent=10)
+                _thread_local.hook = on_frac
+                self._send_progress(job_id, "transcribing",
+                                    "Transcribing...", percent=10)
                 try:
                     result = model.transcribe(
                         audio_source,
                         language=language if language else None,
                     )
                 finally:
-                    _progress_state["hook"] = None
+                    _thread_local.hook = None
 
                 # write SRT
-                self._send_progress(window, "writing", "Writing SRT file...", percent=96)
+                self._send_progress(job_id, "writing", "Writing SRT...", percent=96)
                 srt_content = build_srt(result["segments"])
                 srt_path = out_dir / f"{stem}.srt"
                 srt_path.write_text(srt_content, encoding="utf-8")
@@ -215,15 +249,16 @@ class Api:
             if move_video and new_folder:
                 dest = out_dir / Path(video_path).name
                 if Path(video_path).resolve() != dest.resolve():
-                    self._send_progress(window, "moving",
-                                        "Moving video into folder...", percent=98)
+                    self._send_progress(job_id, "moving",
+                                        "Moving video...", percent=98)
                     shutil.move(str(video_path), str(dest))
                     final_video_path = str(dest)
                     video_moved = True
 
             done_data = json.dumps({
+                "job_id": job_id,
                 "status": "done",
-                "message": "Done!",
+                "message": "Complete",
                 "srt_path": str(srt_path) if srt_path else "",
                 "mp3_path": str(mp3_path) if mp3_path else "",
                 "video_path": str(final_video_path),
@@ -236,20 +271,28 @@ class Api:
             })
             window.evaluate_js(f"onProgress({done_data})")
 
+        except JobCancelled:
+            data = json.dumps({"job_id": job_id, "status": "stopped",
+                               "message": "Stopped"})
+            window.evaluate_js(f"onProgress({data})")
+
         except Exception as exc:
-            err_data = json.dumps({"status": "error", "message": str(exc)})
+            err_data = json.dumps({"job_id": job_id, "status": "error",
+                                   "message": str(exc)})
             window.evaluate_js(f"onProgress({err_data})")
 
         finally:
+            self._jobs.pop(job_id, None)
             if temp_audio:
                 try:
                     os.unlink(temp_audio)
                 except OSError:
                     pass
 
-    def _send_progress(self, window, status, message, percent=None):
-        data = json.dumps({"status": status, "message": message, "percent": percent})
-        window.evaluate_js(f"onProgress({data})")
+    def _send_progress(self, job_id, status, message, percent=None):
+        data = json.dumps({"job_id": job_id, "status": status,
+                           "message": message, "percent": percent})
+        self._window_ref[0].evaluate_js(f"onProgress({data})")
 
 
 def main():
@@ -261,12 +304,12 @@ def main():
     icon_path = os.path.join(base_dir, "icon.png")
 
     window = webview.create_window(
-        "Caption Generator",
+        "MP3 & SRT Maker",
         url=html_path,
         js_api=api,
-        width=780,
-        height=850,
-        min_size=(500, 600),
+        width=1240,
+        height=820,
+        min_size=(900, 500),
     )
     window_ref[0] = window
 

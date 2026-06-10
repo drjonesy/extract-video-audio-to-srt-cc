@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Caption Generator</title>
+<title>MP3 &amp; SRT Maker</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -12,270 +12,162 @@
     background: #0f1117;
     color: #e2e4e9;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 2rem 1rem;
+    padding: 1.5rem;
   }
 
-  .card {
-    background: #1a1d27;
-    border: 1px solid #2a2d3a;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 700px;
-    padding: 2.5rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,.4);
-  }
-
-  h1 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    margin-bottom: .3rem;
-    color: #fff;
-  }
-  .subtitle {
-    color: #8b8fa3;
-    font-size: .95rem;
-    margin-bottom: 2rem;
-  }
-
-  /* ---------- form controls ---------- */
-  .form-group { margin-bottom: 1.25rem; }
-  label {
-    display: block;
-    font-size: .85rem;
-    font-weight: 600;
-    margin-bottom: .4rem;
-    color: #b0b3c5;
-  }
-  input[type="text"], select {
-    width: 100%;
-    padding: .6rem .85rem;
-    font-size: .9rem;
-    border: 1px solid #2a2d3a;
-    border-radius: 8px;
-    background: #13151d;
-    color: #e2e4e9;
-    outline: none;
-    transition: border-color .2s;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-  }
-  select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%238b8fa3'%3E%3Cpath d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right .85rem center;
-    padding-right: 2.2rem;
-    cursor: pointer;
-  }
-  input[type="text"]:focus, select:focus {
-    border-color: #e8453c;
-  }
-  select option { background: #13151d; }
-
-  .checkbox-group {
+  .header {
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: .75rem;
+    margin-bottom: 1.25rem;
   }
-  .checkbox-group input[type="checkbox"] {
-    width: 18px; height: 18px;
-    accent-color: #e8453c;
-    cursor: pointer;
-  }
-  .checkbox-group label { margin-bottom: 0; cursor: pointer; }
+  .header img { width: 42px; height: 42px; border-radius: 10px; }
+  h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+  .subtitle { color: #8b8fa3; font-size: .9rem; }
 
-  .row {
+  .toolbar {
     display: flex;
-    gap: 1rem;
-  }
-  .row > .form-group { flex: 1; }
-
-  /* ---------- button ---------- */
-  .btn {
-    display: inline-flex;
+    gap: .75rem;
     align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: .75rem;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background .2s, opacity .2s;
-    color: #fff;
-    background: #e8453c;
+    margin-bottom: 1rem;
   }
-  .btn:hover { background: #d03a32; }
-  .btn:disabled { opacity: .45; cursor: not-allowed; }
-
-  .btn-download {
-    background: #22c55e;
-    margin-top: .75rem;
-  }
-  .btn-download:hover { background: #1aab50; }
-
-  /* ---------- progress ---------- */
-  .progress-area {
-    margin-top: 1.75rem;
-    display: none;
-  }
-  .progress-area.visible { display: block; }
-
-  .progress-bar-track {
-    height: 6px;
-    background: #2a2d3a;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: .75rem;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #e8453c, #f2845a);
-    border-radius: 3px;
-    transition: width .4s ease;
-  }
-  .progress-bar-fill.indeterminate {
-    width: 40%;
-    animation: slide 1.2s ease-in-out infinite alternate;
-  }
-  @keyframes slide {
-    0% { margin-left: 0; }
-    100% { margin-left: 60%; }
-  }
-  .progress-bar-fill.complete {
-    width: 100%;
-    background: #22c55e;
-    animation: none;
-    margin-left: 0;
-  }
-
-  .status-text {
-    font-size: .9rem;
-    color: #8b8fa3;
-  }
-
-  /* ---------- results ---------- */
-  .results {
-    margin-top: 1.75rem;
-    display: none;
-  }
-  .results.visible { display: block; }
-
-  .results h2 {
-    font-size: 1.1rem;
-    margin-bottom: .3rem;
-    color: #fff;
-  }
-  .results .meta {
-    font-size: .82rem;
-    color: #8b8fa3;
-    margin-bottom: .75rem;
-  }
-
-  .transcript-box {
-    background: #13151d;
-    border: 1px solid #2a2d3a;
-    border-radius: 10px;
-    padding: 1rem;
-    max-height: 220px;
-    overflow-y: auto;
-    font-size: .88rem;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    color: #c8cad4;
-  }
-
-  .transcript-box::-webkit-scrollbar { width: 6px; }
-  .transcript-box::-webkit-scrollbar-track { background: transparent; }
-  .transcript-box::-webkit-scrollbar-thumb { background: #3a3f54; border-radius: 3px; }
-
-  .custom-dir-row {
-    display: flex;
-    gap: .5rem;
-    align-items: center;
-  }
-  .custom-dir-row input[type="text"] { flex: 1; }
-  .btn-browse {
-    padding: .6rem 1rem;
-    font-size: .82rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    background: #2a2d3a;
-    color: #e2e4e9;
-    cursor: pointer;
-    white-space: nowrap;
+  .btn-add {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .65rem 1.1rem;
+    font-size: .9rem; font-weight: 600;
+    border: none; border-radius: 9px;
+    background: #e8453c; color: #fff; cursor: pointer;
     transition: background .2s;
   }
-  .btn-browse:hover { background: #3a3f54; }
+  .btn-add:hover { background: #d03a32; }
+  .count { color: #6b6f82; font-size: .82rem; }
 
-  /* ---------- video select button ---------- */
-  .btn-select {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-    width: 100%;
-    padding: .85rem;
-    font-size: .95rem;
+  /* ---------- table ---------- */
+  .table-wrap {
+    border: 1px solid #2a2d3a;
+    border-radius: 12px;
+    overflow: auto;
+    background: #1a1d27;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  thead th {
+    text-align: left;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #8b8fa3;
     font-weight: 600;
-    border: 1px solid #3a3f54;
-    border-radius: 10px;
+    padding: .7rem .75rem;
+    border-bottom: 1px solid #2a2d3a;
     background: #13151d;
-    color: #e2e4e9;
-    cursor: pointer;
-    transition: border-color .2s, background .2s;
+    position: sticky; top: 0; z-index: 2;
+    white-space: nowrap;
   }
-  .btn-select:hover { border-color: #e8453c; background: rgba(232,69,60,.06); }
-  .btn-select.has-file { border-color: #22c55e; color: #22c55e; }
-  .hint { font-size: .78rem; color: #6b6f82; margin-top: .4rem; }
+  tbody td {
+    padding: .6rem .75rem;
+    border-bottom: 1px solid #23262f;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.done { background: rgba(34,197,94,.05); }
+  tbody tr.processing { background: rgba(232,69,60,.04); }
 
-  /* ---------- progress percent row ---------- */
-  .status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-  }
-  .status-percent {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #e2e4e9;
-    font-variant-numeric: tabular-nums;
-  }
-  .progress-bar-fill { transition: width .3s ease; }
-
-  /* ---------- responsive ---------- */
-  @media (max-width: 520px) {
-    .card { padding: 1.5rem; }
-    .row { flex-direction: column; gap: 0; }
+  .file-cell { max-width: 280px; }
+  .fname { font-weight: 600; color: #fff; word-break: break-word; }
+  .fpath {
+    color: #8b8fa3; font-size: .74rem; margin-top: .2rem;
+    word-break: break-all;
   }
 
-  /* Startup overlay — shown until the pywebview API bridge is ready. */
+  .out-cell { min-width: 170px; max-width: 240px; }
+  .out-text {
+    font-size: .78rem; color: #b0b3c5; margin-top: .4rem;
+    word-break: break-all;
+  }
+  .btn-mini {
+    padding: .4rem .55rem; font-size: .75rem; font-weight: 600;
+    border: none; border-radius: 7px;
+    background: #2a2d3a; color: #e2e4e9; cursor: pointer;
+    white-space: nowrap; transition: background .2s;
+  }
+  .btn-mini:hover { background: #3a3f54; }
+
+  .opts { display: flex; flex-direction: column; gap: .3rem; }
+  .opt {
+    display: flex; align-items: center; gap: .35rem;
+    font-size: .76rem; color: #b0b3c5; white-space: nowrap;
+  }
+  .opt input[type="checkbox"] {
+    width: 15px; height: 15px; accent-color: #e8453c; cursor: pointer;
+  }
+
+  select {
+    padding: .4rem .55rem; font-size: .78rem;
+    border: 1px solid #2a2d3a; border-radius: 7px;
+    background: #13151d; color: #e2e4e9; outline: none; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' fill='%238b8fa3'%3E%3Cpath d='M5 7L0 0h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right .5rem center;
+    padding-right: 1.6rem; min-width: 110px;
+  }
+  .ml-cell { display: flex; flex-direction: column; gap: .35rem; }
+  .ml-cell select { width: 100%; }
+  select:focus { border-color: #e8453c; }
+  select option { background: #13151d; }
+  select:disabled, .opt input:disabled { opacity: .4; cursor: default; }
+  .browse:disabled { opacity: .4; cursor: default; }
+
+  /* ---------- status cell ---------- */
+  .status-cell { min-width: 150px; }
+  .mini-track {
+    height: 5px; background: #2a2d3a; border-radius: 3px;
+    overflow: hidden; margin-bottom: .35rem;
+  }
+  .mini-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #e8453c, #f2845a);
+    border-radius: 3px; transition: width .3s ease;
+  }
+  .mini-fill.complete { width: 100% !important; background: #22c55e; }
+  .mini-text { font-size: .76rem; color: #8b8fa3; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .mini-text.err { color: #ef4444; }
+  .mini-text.ok { color: #22c55e; }
+
+  /* ---------- action cell ---------- */
+  .act-cell { white-space: nowrap; }
+  .row-btn {
+    padding: .45rem .9rem; font-size: .8rem; font-weight: 600;
+    border: none; border-radius: 7px; cursor: pointer;
+    color: #fff; background: #e8453c; transition: background .2s;
+  }
+  .row-btn:hover { background: #d03a32; }
+  .row-btn.stop { background: #f59e0b; }
+  .row-btn.stop:hover { background: #d98906; }
+  .row-btn.done { background: #22c55e; cursor: default; }
+  .row-remove {
+    margin-left: .4rem;
+    padding: .45rem .6rem; font-size: .8rem;
+    border: none; border-radius: 7px; cursor: pointer;
+    background: #2a2d3a; color: #8b8fa3; transition: background .2s, color .2s;
+  }
+  .row-remove:hover { background: #3a3f54; color: #ef4444; }
+
+  .empty {
+    text-align: center; color: #6b6f82; padding: 2.5rem; font-size: .9rem;
+  }
+
+  /* Startup overlay */
   #loadingOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: #0f1117;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.2rem;
-    transition: opacity .35s ease;
+    position: fixed; inset: 0; z-index: 1000; background: #0f1117;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 1.2rem; transition: opacity .35s ease;
   }
   #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
   #loadingOverlay .spinner {
-    width: 44px;
-    height: 44px;
-    border: 4px solid #2a2d3a;
-    border-top-color: #e8453c;
-    border-radius: 50%;
-    animation: spin .8s linear infinite;
+    width: 44px; height: 44px;
+    border: 4px solid #2a2d3a; border-top-color: #e8453c;
+    border-radius: 50%; animation: spin .8s linear infinite;
   }
   #loadingOverlay .loading-text { color: #8b8fa3; font-size: .95rem; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -285,284 +177,294 @@
 
 <div id="loadingOverlay">
   <div class="spinner"></div>
-  <div class="loading-text">Loading Caption Generator…</div>
+  <div class="loading-text">Loading MP3 &amp; SRT Maker…</div>
 </div>
 
-<div class="card">
-  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.3rem;">
-    <img src="icon.png" alt="Logo" style="width:42px;height:42px;border-radius:10px;">
-    <div>
-      <h1 style="margin-bottom:0;">Caption Generator</h1>
-      <p class="subtitle" style="margin-bottom:0;">Generate closed captions from video files using OpenAI Whisper</p>
-    </div>
+<div class="header">
+  <img src="icon.png" alt="Logo">
+  <div>
+    <h1>MP3 &amp; SRT Maker</h1>
+    <div class="subtitle">Batch-create MP3 audio and SRT captions from video files using OpenAI Whisper</div>
   </div>
+</div>
 
-  <form id="captionForm">
-    <!-- Video file picker -->
-    <div class="form-group">
-      <label>Video file</label>
-      <button type="button" class="btn-select" id="selectVideoBtn">
-        <span>&#128249;</span><span id="selectVideoLabel">Select video file</span>
-      </button>
-      <div class="hint">mp4, mov, avi, mkv, webm</div>
-      <div id="videoPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-top:.5rem;word-break:break-all;">
-        <span style="color:#b0b3c5;font-weight:600;">Selected:</span> <span id="videoPathText"></span>
-      </div>
-    </div>
+<div class="toolbar">
+  <button class="btn-add" id="addBtn"><span>&#10133;</span> Add Files</button>
+  <span class="count" id="countLabel">0 files</span>
+</div>
 
-    <!-- Output dir -->
-    <div class="form-group">
-      <label>Output directory</label>
-      <div class="custom-dir-row">
-        <input type="text" id="outputDir" placeholder="Defaults to the video's folder" readonly>
-        <button type="button" class="btn-browse" id="browseDirBtn">Browse</button>
-      </div>
-      <div id="outputPathDisplay" style="display:none;font-size:.82rem;color:#8b8fa3;margin-top:.4rem;word-break:break-all;"></div>
-    </div>
-
-    <!-- Output options -->
-    <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="newFolder" checked>
-        <label for="newFolder">📁 Create File Named Folder</label>
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="createMp3" checked>
-        <label for="createMp3">🎵 Create Mp3</label>
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="createSrt" checked>
-        <label for="createSrt">📝 Create SRT (closed captions)</label>
-      </div>
-    </div>
-    <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="moveVideo" checked>
-        <label for="moveVideo">🎬 Move Video to File Named Folder</label>
-      </div>
-    </div>
-
-    <!-- Model + Language row -->
-    <div class="row">
-      <div class="form-group">
-        <label for="model">Whisper model</label>
-        <select id="model">
-          <option value="tiny">tiny (39 MB &mdash; fastest)</option>
-          <option value="base">base (74 MB)</option>
-          <option value="small">small (244 MB)</option>
-          <option value="medium" selected>medium (1.5 GB &mdash; default)</option>
-          <option value="large-v3">large-v3 (3 GB &mdash; best)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="language">Language <span style="font-weight:400;color:#6b6f82;">(optional)</span></label>
-        <input type="text" id="language" placeholder="Auto-detect">
-      </div>
-    </div>
-
-    <button type="submit" class="btn" id="generateBtn">Generate Captions</button>
-  </form>
-
-  <!-- Progress -->
-  <div class="progress-area" id="progressArea">
-    <div class="progress-bar-track">
-      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
-    </div>
-    <div class="status-row">
-      <span class="status-text" id="statusText">Starting...</span>
-      <span class="status-percent" id="statusPercent"></span>
-    </div>
-  </div>
-
-  <!-- Results -->
-  <div class="results" id="resultsArea">
-    <h2>Transcription Result</h2>
-    <div class="meta" id="resultMeta"></div>
-    <div class="transcript-box" id="transcriptBox"></div>
-  </div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Output Directory</th>
+        <th>Options</th>
+        <th>Model / Language</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="emptyRow">No files yet — click <strong>Add Files</strong> to queue videos.</div>
 </div>
 
 <script>
-// Called from Python to push progress updates
-function onProgress(msg) {
-  const progressBar = document.getElementById("progressBar");
-  const statusText = document.getElementById("statusText");
-  const statusPercent = document.getElementById("statusPercent");
-  const resultsArea = document.getElementById("resultsArea");
-  const generateBtn = document.getElementById("generateBtn");
+const MODEL_OPTS = `
+  <option value="tiny">tiny (39 MB)</option>
+  <option value="base">base (74 MB)</option>
+  <option value="small">small (244 MB)</option>
+  <option value="medium" selected>medium (1.5 GB)</option>
+  <option value="large-v3">large-v3 (3 GB)</option>`;
 
-  statusText.textContent = msg.message;
+const LANG_OPTS = `
+  <option value="" selected>Auto-detect</option>
+  <option value="en">English</option>
+  <option value="es">Spanish</option>
+  <option value="fr">French</option>
+  <option value="de">German</option>
+  <option value="it">Italian</option>
+  <option value="pt">Portuguese</option>
+  <option value="nl">Dutch</option>
+  <option value="ru">Russian</option>
+  <option value="zh">Chinese</option>
+  <option value="ja">Japanese</option>
+  <option value="ko">Korean</option>
+  <option value="ar">Arabic</option>
+  <option value="hi">Hindi</option>
+  <option value="tr">Turkish</option>
+  <option value="pl">Polish</option>
+  <option value="uk">Ukrainian</option>
+  <option value="vi">Vietnamese</option>`;
 
-  // Bar color per stage.
-  const stageColors = {
-    extracting:   "linear-gradient(90deg, #ec4899, #a855f7)", // pink -> purple (MP3/audio)
-    loading:      "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
-    transcribing: "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
-    writing:      "linear-gradient(90deg, #e8453c, #f2845a)", // orange -> red (SRT)
-    moving:       "linear-gradient(90deg, #2563eb, #14b8a6)", // blue -> teal (move video)
-  };
-  if (stageColors[msg.status]) progressBar.style.background = stageColors[msg.status];
+let jobSeq = 0;
+const rowsEl = document.getElementById("rows");
+const emptyRow = document.getElementById("emptyRow");
+const countLabel = document.getElementById("countLabel");
 
-  // Grow the fill bar to the reported percentage.
-  if (typeof msg.percent === "number") {
-    progressBar.style.width = msg.percent + "%";
-    statusPercent.textContent = Math.round(msg.percent) + "%";
+const basename = p => p.split(/[/\\]/).pop();
+function parentDir(p) {
+  const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return i >= 0 ? p.slice(0, i) : "";
+}
+
+function updateCount() {
+  const n = rowsEl.children.length;
+  countLabel.textContent = n + (n === 1 ? " file" : " files");
+  emptyRow.style.display = n ? "none" : "block";
+}
+
+// --- add files (multi-select) ---
+async function addFiles() {
+  const paths = await window.pywebview.api.pick_videos();
+  (paths || []).forEach(addRow);
+}
+
+function addRow(videoPath) {
+  const id = "job" + (++jobSeq);
+  const tr = document.createElement("tr");
+  tr.id = id;
+  tr.dataset.video = videoPath;
+  tr.dataset.state = "idle";
+
+  tr.innerHTML = `
+    <td class="file-cell">
+      <div class="fname">${basename(videoPath)}</div>
+      <div class="fpath" title="${videoPath}">${videoPath}</div>
+    </td>
+    <td class="out-cell">
+      <button class="btn-mini browse">Browse</button>
+      <div class="out-text">${parentDir(videoPath)}</div>
+    </td>
+    <td>
+      <div class="opts">
+        <label class="opt"><input type="checkbox" class="opt-srt" checked> 📝 SRT</label>
+        <label class="opt"><input type="checkbox" class="opt-mp3" checked> 🎵 MP3</label>
+        <label class="opt"><input type="checkbox" class="opt-folder" checked> 📁 Folder</label>
+        <label class="opt"><input type="checkbox" class="opt-move" checked> 🎬 Move video</label>
+      </div>
+    </td>
+    <td>
+      <div class="ml-cell">
+        <select class="model-sel">${MODEL_OPTS}</select>
+        <select class="lang-sel">${LANG_OPTS}</select>
+      </div>
+    </td>
+    <td class="status-cell">
+      <div class="mini-track"><div class="mini-fill"></div></div>
+      <div class="mini-text">Ready</div>
+    </td>
+    <td class="act-cell">
+      <button class="row-btn start">Start</button>
+      <button class="row-remove" title="Remove from list (keeps files)">&#10005;</button>
+    </td>`;
+
+  rowsEl.appendChild(tr);
+  wireRow(tr, id);
+  updateCount();
+}
+
+function wireRow(tr, id) {
+  const btn = tr.querySelector(".row-btn");
+  const remove = tr.querySelector(".row-remove");
+  const browse = tr.querySelector(".browse");
+  const outText = tr.querySelector(".out-text");
+  const folder = tr.querySelector(".opt-folder");
+  const move = tr.querySelector(".opt-move");
+  const srt = tr.querySelector(".opt-srt");
+  const modelSel = tr.querySelector(".model-sel");
+  const langSel = tr.querySelector(".lang-sel");
+
+  // Output dir picker
+  browse.addEventListener("click", async () => {
+    if (tr.dataset.state === "processing") return;
+    const path = await window.pywebview.api.pick_directory();
+    if (path) { outText.textContent = path; outText.title = path; }
+  });
+
+  // Move video only meaningful with a per-file folder
+  function syncMove() {
+    move.disabled = !folder.checked || tr.dataset.state === "processing";
+    if (!folder.checked) move.checked = false;
+  }
+  folder.addEventListener("change", syncMove);
+  syncMove();
+
+  // Model/language only matter when SRT is on
+  function syncSrt() {
+    const lock = tr.dataset.state === "processing";
+    modelSel.disabled = !srt.checked || lock;
+    langSel.disabled = !srt.checked || lock;
+  }
+  srt.addEventListener("change", syncSrt);
+  syncSrt();
+
+  // Start / Stop
+  btn.addEventListener("click", () => {
+    const st = tr.dataset.state;
+    if (st === "processing") {
+      tr.querySelector(".mini-text").textContent = "Stopping…";
+      window.pywebview.api.stop_job(id);
+    } else if (st !== "done") {
+      startRow(tr, id);
+    }
+  });
+
+  // Remove from list (optionally stop if running). Never deletes files.
+  remove.addEventListener("click", () => {
+    if (tr.dataset.state === "processing") window.pywebview.api.stop_job(id);
+    tr.remove();
+    updateCount();
+  });
+}
+
+function setState(tr, state) {
+  tr.dataset.state = state;
+  tr.classList.toggle("processing", state === "processing");
+  tr.classList.toggle("done", state === "done");
+
+  const btn = tr.querySelector(".row-btn");
+  const locked = state === "processing" || state === "done";
+  tr.querySelectorAll(".opt input, .model-sel, .lang-sel, .browse")
+    .forEach(el => { el.disabled = locked; });
+
+  // re-apply dependent enable/disable for idle-ish states
+  if (!locked) {
+    const folder = tr.querySelector(".opt-folder");
+    const srt = tr.querySelector(".opt-srt");
+    tr.querySelector(".opt-move").disabled = !folder.checked;
+    tr.querySelector(".model-sel").disabled = !srt.checked;
+    tr.querySelector(".lang-sel").disabled = !srt.checked;
   }
 
-  if (msg.status === "done") {
-    progressBar.className = "progress-bar-fill complete";
-    progressBar.style.background = "";  // let the green .complete style show
-    progressBar.style.width = "100%";
-    statusPercent.textContent = "100%";
-    const parts = [];
-    if (msg.has_srt) {
-      parts.push("Language: " + msg.language);
-      parts.push("Segments: " + msg.segments);
-      parts.push("SRT: " + msg.srt_path);
-    }
-    if (msg.mp3_path) parts.push("MP3: " + msg.mp3_path);
-    if (msg.moved_video) parts.push("Video moved to: " + msg.video_path);
-    document.getElementById("resultMeta").textContent = parts.join("  |  ");
-    const transcriptBox = document.getElementById("transcriptBox");
-    transcriptBox.textContent = msg.has_srt ? msg.transcript : "";
-    transcriptBox.style.display = msg.has_srt ? "block" : "none";
-    document.querySelector("#resultsArea h2").textContent =
-      msg.has_srt ? "Transcription Result" : "Done";
-    resultsArea.classList.add("visible");
-    generateBtn.disabled = false;
-  } else if (msg.status === "error") {
-    progressBar.className = "progress-bar-fill";
-    progressBar.style.width = "100%";
-    progressBar.style.background = "#ef4444";
-    statusPercent.textContent = "";
-    generateBtn.disabled = false;
+  if (state === "processing") {
+    btn.textContent = "Stop"; btn.className = "row-btn stop"; btn.disabled = false;
+  } else if (state === "done") {
+    btn.textContent = "Complete"; btn.className = "row-btn done"; btn.disabled = true;
+  } else {
+    btn.textContent = "Start"; btn.className = "row-btn start"; btn.disabled = false;
   }
 }
 
-(function() {
-  const selectVideoBtn = document.getElementById("selectVideoBtn");
-  const selectVideoLabel = document.getElementById("selectVideoLabel");
-  const form = document.getElementById("captionForm");
-  const generateBtn = document.getElementById("generateBtn");
-  const progressArea = document.getElementById("progressArea");
-  const progressBar = document.getElementById("progressBar");
-  const statusText = document.getElementById("statusText");
-  const statusPercent = document.getElementById("statusPercent");
-  const resultsArea = document.getElementById("resultsArea");
-  const outputDir = document.getElementById("outputDir");
-  const browseDirBtn = document.getElementById("browseDirBtn");
-  const outputPathDisplay = document.getElementById("outputPathDisplay");
-  const videoPathDisplay = document.getElementById("videoPathDisplay");
-  const videoPathText = document.getElementById("videoPathText");
+async function startRow(tr, id) {
+  const video = tr.dataset.video;
+  const outdir = tr.querySelector(".out-text").textContent || parentDir(video);
+  const srt = tr.querySelector(".opt-srt").checked;
+  const mp3 = tr.querySelector(".opt-mp3").checked;
+  if (!srt && !mp3) { alert("Pick at least MP3 or SRT for " + basename(video)); return; }
+  const folder = tr.querySelector(".opt-folder").checked;
+  const move = tr.querySelector(".opt-move").checked;
+  const model = tr.querySelector(".model-sel").value;
+  const lang = tr.querySelector(".lang-sel").value;
 
-  let selectedVideoPath = "";
+  setState(tr, "processing");
+  const fill = tr.querySelector(".mini-fill");
+  fill.className = "mini-fill"; fill.style.width = "0%";
+  const text = tr.querySelector(".mini-text");
+  text.className = "mini-text"; text.textContent = "Starting…";
 
-  function setOutputDir(path) {
-    outputDir.value = path;
-    outputPathDisplay.textContent = path;
-    outputPathDisplay.style.display = "block";
+  await window.pywebview.api.start_job(id, video, outdir, model, lang,
+                                       srt, mp3, folder, move);
+}
+
+// Stage colors for the per-row bar.
+const STAGE_COLORS = {
+  extracting:   "linear-gradient(90deg, #ec4899, #a855f7)",
+  loading:      "linear-gradient(90deg, #e8453c, #f2845a)",
+  transcribing: "linear-gradient(90deg, #e8453c, #f2845a)",
+  writing:      "linear-gradient(90deg, #e8453c, #f2845a)",
+  moving:       "linear-gradient(90deg, #2563eb, #14b8a6)",
+};
+
+// Called from Python with progress for a specific job_id.
+function onProgress(msg) {
+  const tr = document.getElementById(msg.job_id);
+  if (!tr) return;  // row was removed — ignore stray updates
+  const fill = tr.querySelector(".mini-fill");
+  const text = tr.querySelector(".mini-text");
+
+  if (STAGE_COLORS[msg.status]) fill.style.background = STAGE_COLORS[msg.status];
+  if (typeof msg.percent === "number") fill.style.width = msg.percent + "%";
+
+  if (msg.status === "done") {
+    fill.className = "mini-fill complete"; fill.style.background = "";
+    const made = [];
+    if (msg.mp3_path) made.push("MP3");
+    if (msg.has_srt) made.push("SRT");
+    text.className = "mini-text ok";
+    text.textContent = "✓ " + (made.join(" + ") || "Done");
+    let tip = "";
+    if (msg.has_srt) tip += "SRT: " + msg.srt_path + "\n";
+    if (msg.mp3_path) tip += "MP3: " + msg.mp3_path + "\n";
+    if (msg.moved_video) tip += "Video moved to: " + msg.video_path;
+    text.title = tip.trim();
+    setState(tr, "done");
+  } else if (msg.status === "error") {
+    fill.style.background = "#ef4444"; fill.style.width = "100%";
+    text.className = "mini-text err"; text.textContent = "Error: " + msg.message;
+    text.title = msg.message;
+    setState(tr, "idle");
+  } else if (msg.status === "stopped") {
+    fill.style.width = "0%"; fill.style.background = "";
+    text.className = "mini-text"; text.textContent = "Stopped";
+    setState(tr, "idle");
+  } else {
+    text.className = "mini-text"; text.textContent = msg.message;
   }
+}
 
-  // Parent directory of a path (handles / and \).
-  function parentDir(p) {
-    const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
-    return i >= 0 ? p.slice(0, i) : "";
-  }
+document.getElementById("addBtn").addEventListener("click", addFiles);
+updateCount();
 
-  // --- native directory picker ---
-  browseDirBtn.addEventListener("click", async () => {
-    const path = await window.pywebview.api.pick_directory();
-    if (path) setOutputDir(path);
-  });
-
-  // --- SRT toggle: grey out model/language when captions are off ---
-  const createSrt = document.getElementById("createSrt");
-  const modelSelect = document.getElementById("model");
-  const languageInput = document.getElementById("language");
-  function syncSrt() {
-    const on = createSrt.checked;
-    modelSelect.disabled = !on;
-    languageInput.disabled = !on;
-    modelSelect.parentElement.parentElement.style.opacity = on ? "1" : ".4";
-  }
-  createSrt.addEventListener("change", syncSrt);
-  syncSrt();
-
-  // --- "move video" only applies when "new folder" is on ---
-  const newFolder = document.getElementById("newFolder");
-  const moveVideo = document.getElementById("moveVideo");
-  function syncMoveVideo() {
-    moveVideo.disabled = !newFolder.checked;
-    if (!newFolder.checked) moveVideo.checked = false;
-    moveVideo.parentElement.style.opacity = newFolder.checked ? "1" : ".4";
-  }
-  newFolder.addEventListener("change", syncMoveVideo);
-  syncMoveVideo();
-
-  // --- native video file picker ---
-  selectVideoBtn.addEventListener("click", async () => {
-    const path = await window.pywebview.api.pick_video();
-    if (path) {
-      selectedVideoPath = path;
-      const name = path.split(/[/\\]/).pop();
-      selectVideoLabel.textContent = name;
-      selectVideoBtn.classList.add("has-file");
-      videoPathText.textContent = path;
-      videoPathDisplay.style.display = "block";
-      // Default the output directory to the video's folder.
-      if (!outputDir.value) setOutputDir(parentDir(path));
-    }
-  });
-
-  // --- generate ---
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    if (!selectedVideoPath) { alert("Please select a video file first."); return; }
-    if (!outputDir.value) { alert("Please select an output directory."); return; }
-    if (!createSrt.checked && !document.getElementById("createMp3").checked) {
-      alert("Select at least one output: MP3 or SRT."); return;
-    }
-
-    generateBtn.disabled = true;
-    resultsArea.classList.remove("visible");
-    progressArea.classList.add("visible");
-    progressBar.className = "progress-bar-fill";
-    progressBar.style.background = "";
-    progressBar.style.width = "0%";
-    statusPercent.textContent = "0%";
-    statusText.textContent = "Starting...";
-
-    const outDir = outputDir.value;
-    const model = document.getElementById("model").value;
-    const lang = document.getElementById("language").value.trim();
-    const wantSrt = createSrt.checked;
-    const wantMp3 = document.getElementById("createMp3").checked;
-    const useNewFolder = newFolder.checked;
-    const moveVid = moveVideo.checked;
-
-    await window.pywebview.api.generate(
-      selectedVideoPath, outDir, model, lang,
-      wantSrt, wantMp3, useNewFolder, moveVid
-    );
-  });
-})();
-
-// Dismiss the startup overlay once pywebview has injected its API bridge.
-// Until this fires, window.pywebview.api is undefined and every button is dead.
+// Dismiss the startup overlay once pywebview's API bridge is ready.
 (function() {
   function ready() {
-    const overlay = document.getElementById("loadingOverlay");
-    if (overlay) overlay.classList.add("hidden");
+    const o = document.getElementById("loadingOverlay");
+    if (o) o.classList.add("hidden");
   }
-  if (window.pywebview && window.pywebview.api) {
-    ready();  // bridge already present (event missed)
-  } else {
-    window.addEventListener("pywebviewready", ready);
-  }
+  if (window.pywebview && window.pywebview.api) ready();
+  else window.addEventListener("pywebviewready", ready);
 })();
 </script>
 </body>
